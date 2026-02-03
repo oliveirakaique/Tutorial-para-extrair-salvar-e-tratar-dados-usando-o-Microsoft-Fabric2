@@ -5,6 +5,13 @@ Tratar dados de forma eficiente não é só sobre tecnologia, é sobre evitar re
 Neste artigo, apresento uma solução para extração, armazenamento e tratamento de dados, utilizando uma arquitetura medalhão **raw [bronze]**, **silver [prata]** e **gold [ouro]**, totalmente automatizada e otimizada.
 <br>
 
+### Lakehouses
+Crie três lakehouses com os seguintes nomes: `lk_raw_dados_publicos`, `lk_silver_dados_publicos` e `lk_gold_dados_publicos`.
+
+Obs.: Não é necessário definir esquemas no lakehouse (opcional). Esses lakehouses irão armazenar os dados de importações e exportações brasileiras. O nome **dados_publicos** é apenas sugestivo e segue a recomendação de nomenclatura para dados de origem pública, como índices de preços, indicadores de atividade econômica e similares. Neste tutorial, os dados utilizados são do MDIC.
+
+Veja como criar um [lakehouse](https://learn.microsoft.com/pt-br/fabric/data-engineering/create-lakehouse).
+   
 ### Pipeline e notebooks
 <img width="917" height="648" alt="image" src="https://github.com/user-attachments/assets/df1b2939-f2d2-41f0-aa91-17c6b6921d7e" /><br>
 
@@ -46,6 +53,55 @@ Por sua vez, o notebook `nb_raw_mdic_etl_dim` define quais arquivos serão trans
 #### 4. Noteboos `nb_silver_mdic_etl`
 Nesta etapa, é realizado o ETL das tabelas Delta armazenadas na camada **raw**, onde são definidos os nomes das colunas, realizados os relacionamentos entre tabelas correlatas e ajustados os tipos de dados. Em essência, os dados são promovidos da camada **raw** para a **silver** com pequenas transformações e padronizações.
 
+### Camada Gold
+
+Nessa camada, não foi necessário realizar refinamentos ou agregações, pois os dados fornecidos pelo MDIC já estão bem organizados e padronizados. Como os dados já estão tratados na camada silver, basta replicá-los para a camada gold, que é onde o usuário final consome as informações.  
+
+Não é necessário copiar novamente os dados fisicamente; é possível utilizar **shortcuts do OneLake**. Dessa forma, eliminam-se duplicações de dados, reduzindo a latência do processo associada à cópia e ao preparo das informações. Leia a documentação sobre [shortcuts](https://learn.microsoft.com/pt-br/fabric/onelake/onelake-shortcuts#what-are-shortcuts).
+
+### Pipeline de atualização incremental de dados `pl_dados_mdic_incremental`
+Após compreender o funcionamento do pipeline `pl_dados_mdic` e sua configuração, é necessário definir as cargas **full** e **incrementais**. Na carga full, os dados são extraídos desde `01-01-1997` até o ano corrente. Em seguida, o pipeline passa a operar de forma incremental, processando apenas os novos dados publicados. Para entender como realizar cargas incrementais de dados, consulte o tutorial oficial: [leia](https://learn.microsoft.com/pt-br/fabric/data-factory/tutorial-incremental-copy-data-warehouse-lakehouse).
+
+A estratégia de watermark (marca d’água) na engenharia de dados da Microsoft consiste em rastrear e processar de forma eficiente alterações incrementais nos pipelines, evitando o reprocessamento completo dos dados de origem. No nosso caso, o pipeline de ingestão `pl_dados_mdic` será acionado apenas quando houver a publicação de novos dados. Para isso, utilizamos o endpoint [`api-comexstat.mdic`](https://api-comexstat.mdic.gov.br/docs#/paths/general-dates-updated/get), que informa a última atualização disponível para consulta. Quando o Ministério publicar novos dados, o pipeline compara o output da API com a data armazenada no arquivo de watermark criado no ambiente.
+
+### Configuração da atualização incremental
+No lakehouse `lk_raw_dados_publicos`, serão criadas duas estruturas de pastas: a pasta `api_comexstat_mdic`, contendo as subpastas `data` e `json`, e uma pasta geral em `Files` para armazenamento dos demais arquivos. Todos os arquivos estão em anexo. Antes de disparar a atualização do pipeline `pl_dados_mdic_incremental`, é necessário criar as pastas e importar os respectivos arquivos, pois eles são a base de controle para o processamento incremental.<br>
+
+<img width="1501" height="395" alt="image" src="https://github.com/user-attachments/assets/dfc77b34-d8db-408f-8998-49fc4d2cdaab" /><br>
+
+* Na pasta `api_comexstat_mdic` será armazenado o arquivo `watermark.csv`, contendo uma data de referência inicial.
+* Na pasta `json` será armazenado o output da API `https://api-comexstat.mdic.gov.br/general/dates/updated`. Ele será salvo automaticamente.
+```Python
+{
+  "data": {
+    "updated": "2026-01-06",
+    "year": "2025",
+    "monthNumber": "12"
+  },
+  "success": true,
+  "message": null,
+  "processo_info": null,
+  "language": "pt"
+}
+```
+* Na pasta `geral` precisamos acrescentar o arquivo `watermark_templete.csv`
+
+### Funcionamento do pipeline `pl_dados_mdic_incremental`
+Este pipeline configura os pontos discutidos anteriormente. Para fins de estudo, ele foi desenvolvido com condições que permitem a reutilização por diferentes usuários que desejem testá-lo, não sendo obrigatório mantê-lo exatamente nesse formato. A seguir, será explicado cada tópico enumerado do pipeline.
+
+Antes de tudo, é importante ressaltar que este é o pipeline principal, responsável por invocar o pipeline `pl_dados_mdic`. Para mais detalhes, consulte a atividade de [invocação de pipeline](https://learn.microsoft.com/pt-br/fabric/data-factory/invoke-pipeline-activity).<br>
+
+<img width="1807" height="847" alt="image" src="https://github.com/user-attachments/assets/e3e1a97c-61f6-48c3-ab4d-4fdab8de6965" />
+
+1. Na parametrização: informe o nome do lakehouse **raw** e **silver**, conforme os nomes sugeridos acima. Em seguida, defina o caminho **ABFSS** da pasta `Files` do lakehouse **raw**.
+
+2. Get Metada: verificará a existência do arquivo json da `api-comexstat.mdic`.
+
+3. Condição **if**: na primeira execução, o resultado será **false**, pois o arquivo JSON ainda não estará armazenado na pasta. Nesse caso, será realizada uma carga **full** dos dados, conforme as operações descritas acima, e o JSON será salvo no diretório. Nas execuções seguintes, quando o arquivo já existir, o resultado será **true**, acionando a atualização do JSON e a comparação com a data registrada no arquivo `watermark.csv` salvo na pasta `api_comexstat_mdic`.
+
+4. Lookup: aqui está o cerne da atualização incremental. Nesta etapa, a data retornada pela API é extraída e comparada com a data do arquivo `watermark.csv`, por meio de lookups nos respectivos arquivos, sendo ambas armazenadas em variáveis para controle do processamento.
+
+5. Condição **If**: se as variáveis apresentarem datas iguais, significa que não houve publicação de novos dados. Nesse caso, o resultado **true** não executa nenhuma ação, apenas encerra o pipeline por meio do `Wait2`. Caso contrário (**false**), o pipeline `pl_dados_mdic` é acionado e o arquivo `watermark.csv` é atualizado com a nova data de referência. Garatimos dessa forma que o pipeline atualizará apenas uma vez por fez.
 
 
 
@@ -79,32 +135,6 @@ Nesta etapa, é realizado o ETL das tabelas Delta armazenadas na camada **raw**,
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-### Camada Raw [Raw]
-
-A Camada Bronze é o primeiro nível na Arquitetura Medallion (Medallion Architecture) de gerenciamento de dados, focada na ingestão e armazenamento de dados brutos (raw data) provenientes de diversas fontes (APIs, bancos de dados, logs). 
-Nele iremos ter duas pastas para armazenar dados que são dimensões e fatos. Os dados podem ser baixos pelo portal do [MDIC](https://www.gov.br/mdic/pt-br/assuntos/comercio-exterior/estatisticas/base-de-dados-bruta).
 
 
 
