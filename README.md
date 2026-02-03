@@ -31,7 +31,7 @@ Os arquivos originais são fornecidos em formato CSV. No pipeline, eles são con
 * Redução de espaço em disco
 * Padronização do armazenamento analítico
 
-#### 2. Noteboos `nb_raw_mdic_fatos` e `nb_raw_mdic_dim`
+#### 2. Notebooks `nb_raw_mdic_fatos` e `nb_raw_mdic_dim`
 
 No notebook `nb_raw_mdic_fatos` consiste na extração dos dados brutos, persistindo os arquivos na pasta `Files` do lakehouse da camada **raw**. No portal, os dados estão compilados e separados por ano. Os arquivos podem ser acessados por meio de links externos `https://balanca.economia.gov.br/balanca/bd/comexstat-bd/mun/`, cujo final da URL varia conforme o ano e o tipo de estatística, por exemplo: `EXP_2025_MUN.csv` e `IMP_2025_MUN.csv`.
 
@@ -41,14 +41,14 @@ O notebook `nb_raw_mdic_dim` consiste na extração das tabelas de correlação 
 
 <img width="1824" height="870" alt="image" src="https://github.com/user-attachments/assets/d8aad563-cb3f-41bd-909c-10ad8511a144" /><br>
 
-#### 3. Noteboos `nb_raw_mdic_etl_fatos` e `nb_raw_mdic_etl_dim`
+#### 3. Notebooks `nb_raw_mdic_etl_fatos` e `nb_raw_mdic_etl_dim`
 O notebook `nb_raw_mdic_etl_fatos` realiza a transformação dos arquivos Parquet de importação e exportação em duas tabelas Delta, que são persistidas na camada **raw**. Antes da gravação dos dados, é utilizado o parâmetro [`checkpointLocation`](https://learn.microsoft.com/pt-br/azure/databricks/structured-streaming/checkpoints), que define o diretório onde o Spark armazena o estado do processamento, garantindo tolerância a falhas, consistência dos dados e evitando o reprocessamento de arquivos já ingeridos. O parâmetro `checkpointLocation` também atua na consolidação dos logs de transação do Delta Lake. Em cargas frequentes, cada operação gera um novo arquivo de log, o que pode degradar a performance de leitura ao longo do tempo. Periodicamente, esses logs são consolidados em arquivos de checkpoint, que resumem o histórico de transações. Dessa forma, ao consultar a tabela, o sistema lê apenas o checkpoint mais recente e poucos logs adicionais, melhorando significativamente a eficiência e o desempenho. Neste caso, ele irá reprocessar apenas os novos arquivos salvos na pasta `Files`.
 
 Por sua vez, o notebook `nb_raw_mdic_etl_dim` define quais arquivos serão transformados em tabelas Delta. Como ponto de atenção, foi implementada a verificação `spark.catalog.tableExists`, que valida se determinada tabela já existe no catálogo. Caso exista, o processamento é ignorado, evitando reprocessamento desnecessário. Essa abordagem é adotada porque as dimensões fornecidas pelo MDIC são completas e estáveis. Eventualmente, podem surgir novos produtos na balança comercial que ainda não estejam cadastrados nas tabelas de detalhamento; nesse caso, basta remover a condição `spark.catalog.tableExists` para forçar o reprocessamento das dimensões.
 
 <img width="1427" height="856" alt="image" src="https://github.com/user-attachments/assets/7ac1d141-5465-477d-9523-544fe9dffc73" /><br>
 
-#### 4. Noteboos `nb_silver_mdic_etl`
+#### 4. Notebooks `nb_silver_mdic_etl`
 Nesta etapa, é realizado o ETL das tabelas Delta armazenadas na camada **raw**, onde são definidos os nomes das colunas, realizados os relacionamentos entre tabelas correlatas e ajustados os tipos de dados. Em essência, os dados são promovidos da camada **raw** para a **silver** com pequenas transformações e padronizações.
 
 ### Camada Gold
