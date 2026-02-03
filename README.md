@@ -8,9 +8,7 @@ Neste artigo, apresento uma solução para extração, armazenamento e tratament
 ### Lakehouses
 Crie três lakehouses com os seguintes nomes: `lk_raw_dados_publicos`, `lk_silver_dados_publicos` e `lk_gold_dados_publicos`.
 
-Obs.: Não é necessário definir esquemas no lakehouse (opcional). Esses lakehouses irão armazenar os dados de importações e exportações brasileiras. O nome **dados_publicos** é apenas sugestivo e segue a recomendação de nomenclatura para dados de origem pública, como índices de preços, indicadores de atividade econômica e similares. Neste tutorial, os dados utilizados são do MDIC.
-
-Veja como criar um [lakehouse](https://learn.microsoft.com/pt-br/fabric/data-engineering/create-lakehouse).
+Obs.: Não é necessário definir esquemas no lakehouse (opcional). Esses lakehouses irão armazenar os dados de importações e exportações brasileiras. O nome **dados_publicos** é apenas sugestivo e segue a recomendação de nomenclatura para dados de origem pública, como índices de preços, indicadores de atividade econômica e similares. Neste tutorial, os dados utilizados são do MDIC. Veja como criar um [lakehouse](https://learn.microsoft.com/pt-br/fabric/data-engineering/create-lakehouse).
    
 ### Pipeline e notebooks
 <img width="917" height="648" alt="image" src="https://github.com/user-attachments/assets/df1b2939-f2d2-41f0-aa91-17c6b6921d7e" /><br>
