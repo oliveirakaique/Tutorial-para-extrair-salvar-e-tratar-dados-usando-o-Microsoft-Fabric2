@@ -100,3 +100,12 @@ Antes de tudo, é importante ressaltar que este é o pipeline principal, respons
 4. Lookup: aqui está o cerne da atualização incremental. Nesta etapa, a data retornada pela API é extraída e comparada com a data do arquivo `watermark.csv`, por meio de lookups nos respectivos arquivos, sendo ambas armazenadas em variáveis para controle do processamento.
 
 5. Condição **If**: se as variáveis apresentarem datas iguais, significa que não houve publicação de novos dados. Nesse caso, o resultado **true** não executa nenhuma ação, apenas encerra o pipeline por meio do `Wait2`. Caso contrário (**false**), o pipeline `pl_dados_mdic` é acionado e o arquivo `watermark.csv` é atualizado com a nova data de referência. Garatimos dessa forma que o pipeline atualizará apenas uma vez por fez.
+
+### Conclusão
+
+### Conclusão
+
+Este projeto mostra que engenharia de dados bem feita começa com **planejamento**. Ao usar o Microsoft Fabric com a arquitetura medalhão, pipelines automatizados e cargas incrementais, conseguimos evitar retrabalho, reduzir custo e ganhar eficiência desde o primeiro dia.
+
+A solução não resolve apenas o problema dos dados do MDIC — ela cria um **modelo reutilizável**, escalável e fácil de manter, pronto para crescer junto com o negócio. No fim, o maior ganho não é técnico: é **tempo**, **confiabilidade** e **tranquilidade** para quem mantém e consome os dados.
+
