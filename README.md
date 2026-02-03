@@ -103,8 +103,6 @@ Antes de tudo, é importante ressaltar que este é o pipeline principal, respons
 
 ### Conclusão
 
-### Conclusão
-
 Este projeto mostra que engenharia de dados bem feita começa com **planejamento**. Ao usar o Microsoft Fabric com a arquitetura medalhão, pipelines automatizados e cargas incrementais, conseguimos evitar retrabalho, reduzir custo e ganhar eficiência desde o primeiro dia.
 
 A solução não resolve apenas o problema dos dados do MDIC — ela cria um **modelo reutilizável**, escalável e fácil de manter, pronto para crescer junto com o negócio. No fim, o maior ganho não é técnico: é **tempo**, **confiabilidade** e **tranquilidade** para quem mantém e consome os dados.
